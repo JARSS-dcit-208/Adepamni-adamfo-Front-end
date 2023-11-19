@@ -1,0 +1,38 @@
+diff --git a/node_modules/@sidebase/nuxt-auth/dist/runtime/composables/local/useAuth.mjs b/node_modules/@sidebase/nuxt-auth/dist/runtime/composables/local/useAuth.mjs
+index b48997a..062d582 100644
+--- a/node_modules/@sidebase/nuxt-auth/dist/runtime/composables/local/useAuth.mjs
++++ b/node_modules/@sidebase/nuxt-auth/dist/runtime/composables/local/useAuth.mjs
+@@ -7,24 +7,23 @@ import { useAuthState } from "./useAuthState.mjs";
+ import { useNuxtApp, useRuntimeConfig, nextTick, navigateTo } from "#imports";
+ const signIn = async (credentials, signInOptions, signInParams) => {
+   const nuxt = useNuxtApp();
++  const { $axiosClient } = useNuxtApp();
+   const config = useTypedBackendConfig(useRuntimeConfig(), "local");
+   const { path, method } = config.endpoints.signIn;
+-  const response = await _fetch(nuxt, path, {
+-    method,
+-    body: {
+-      ...credentials,
+-      ...signInOptions ?? {}
+-    },
+-    params: signInParams ?? {}
++  const response = await $axiosClient.post('login', {
++    ...credentials,
++    ...signInOptions ?? {}
+   });
+-  const extractedToken = jsonPointerGet(response, config.token.signInResponseTokenPointer);
++  let extractedToken = response.headers.get('Authorization')
+   if (typeof extractedToken !== "string") {
+     console.error(`Auth: string token expected, received instead: ${JSON.stringify(extractedToken)}. Tried to find token at ${config.token.signInResponseTokenPointer} in ${JSON.stringify(response)}`);
+     return;
+   }
+-  const { rawToken } = useAuthState();
++  extractedToken = extractedToken.replace('Bearer ', '')
++  const { rawToken, data, lastRefreshedAt } = useAuthState();
+   rawToken.value = extractedToken;
+-  await nextTick(getSession);
++  data.value = response.data.data
++  lastRefreshedAt.value = new Date();
+   const { callbackUrl, redirect = true } = signInOptions ?? {};
+   if (redirect) {
+     const urlToNavigateTo = callbackUrl ?? await getRequestURLWN(nuxt);
